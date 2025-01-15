@@ -1,0 +1,54 @@
+{% extends "layouts/module_admin.html" %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="Logs">Logs</a></li>
+{% endblock %}
+
+{% block module %}
+<style>
+    .log-list {
+        height: 100vh;
+        overflow-y: auto;
+    }
+    .log-content {
+        height: 100vh;
+        overflow-y: auto;
+        background-color: #f8f8f8;
+        padding: 10px;
+        border-left: 1px solid #ccc;
+    }
+    pre {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        background-color: #f8f8f8;
+        padding: 10px;
+        border: 1px solid #ccc;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3 log-list">
+            <h3 class="mt-3">Logs</h3>
+            <ul class="list-group">
+                {% for log_file in log_files %}
+                    <li class="list-group-item">
+                        <form action="Logs" method="post" style="display:inline;">
+                            <input type="hidden" name="log_file" value="{{ log_file }}">
+                            <button type="submit" class="btn btn-link">{{ log_file }}</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="col-md-9 log-content">
+            {% if selected_log_file %}
+                <h3 class="mt-3">Content: {{ selected_log_file }}</h3>
+                <pre>{{ log_content }}</pre>
+            {% else %}
+                <h3 class="mt-3">Select log for view</h3>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
