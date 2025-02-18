@@ -5,50 +5,423 @@
 {% endblock %}
 
 {% block module %}
-<style>
-    .log-list {
-        height: 100vh;
-        overflow-y: auto;
+<div id="logs_module" class="log-viewer container-fluid p-0">
+    <div class="row h-100">
+      <!-- Левая колонка: содержимое выбранных файлов -->
+      <div class="col-auto file-list border-end pe-2">
+        <h4>Logs</h4>
+        <!-- Фильтр по имени -->
+        <div class="search-bar d-flex">
+            <button  class="btn btn-primary btn-sm d-flex align-items-center mb-3" type="button" @click="fetchLogs()">
+                <span class="fas fa-rotate" :class="{ 'fa-spin' : loading }"></span>
+            </button >
+            <input
+            v-model="filter"
+            type="text"
+            class="form-control mb-3"
+            placeholder="Search filename..."
+            />
+            <!-- Сортировка -->
+            <select
+            v-model="sortBy"
+            class="form-select mb-3"
+            placeholder="Sort by..."
+            >
+                <option v-for="item in sortOptions" :value="item.value">[[item.text]]</option>
+            </select>
+        </div>
+        <!-- Список файлов -->
+        <ul class="list-group">
+            <li
+                v-for="(file, index) in filteredAndSortedFiles"
+                :key="index"
+                class="list-group-item"
+                @click="setSelection(file)"
+            >
+                <div class="d-flex w-100 justify-content-between">
+                    <div style="cursor: pointer;">
+                        <input class="form-check-input me-2" type="checkbox" :checked="isSelected(file.name)" @click.stop="toggleSelection(file)">
+                        [[ file.name ]]
+                    </div>
+                    <a class="link" @click.stop="confirmDelete(file)">
+                        <i class="feather icon-trash text-danger"></i>
+                    </a>
+                </div>
+                <small class="text-muted">[[ formatSize(file.size) ]] | [[ formatDate(file.modified) ]]</small>
+            </li>
+        </ul>
+      </div>
+
+        <!-- Правая колонка -->
+        <div class="col flex-grow-1 file-list">
+            <h4>Content</h4>
+            <div v-if="selectedLogs.length > 0">
+              <div class="search-bar row">
+                <div class="col">
+                    <input
+                      v-model="searchQuery"
+                      type="text"
+                      class="form-control mb-3"
+                      placeholder="Filter..."
+                    />
+                    <label class="form-label">Sort by...</label>
+                    <select
+                        v-model="sortOrder"
+                        class="form-select mb-3"
+                        placeholder="Sort by..."
+                    >
+                        <option value="asc">Time 🔼</option>
+                        <option value="desc">Time 🔽</option>
+                    </select>
+                </div>
+                <div class="col">
+                    <label class="form-label">Filter by level...</label>
+                    <select
+                        v-model="selectedLevels"
+                        multiple
+                        class="form-select level-filter mb-3"
+                        placeholder="Filter by level..."
+                    >
+                        <option value="UNKNOWN">UNKNOWN</option>
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="FATAL">FATAL</option>
+                    </select>
+                </div>
+            </div>
+              <div v-for="(log, index) in selectedLogs" :key="index">
+                <div class="d-flex align-items-center mb-2">
+                    <a class="link" @click="fetchLogFileContent(log.name)">
+                        <span class="fas fa-rotate" :class="{ 'fa-spin' : log.loading }"></span>
+                    </a>
+                    <h5 class="mx-3 mt-2">
+                        [[ log.name ]]
+                    </h5>
+                    <a class="link" @click.stop="log.collapse = !log.collapse">
+                        <span class="fas" :class="log.collapse ? 'fa-chevron-up' : 'fa-chevron-down'"></span>
+                    </a>
+                </div>
+                <ul class="list-unstyled" v-show="!log.collapse">
+                    <li
+                      v-for="(line, lineIndex) in filteredAndSortedLogEntries(log)"
+                      :key="lineIndex"
+                      class="log-entry"
+                    >
+                      <strong>[[ line.time ]] <span :class="'badge bg-'+line.color">[[line.level]]</span></strong>: 
+                      <span v-if="!line.isMultiline" class="log-message">[[ line.message ]]</span>
+                      <span v-else>
+                        <span v-if="!line.isExpanded" class="multiline-toggle" @click="toggleMultiline(line)">
+                          [[ line.message.split('\n')[0] ]]... (click)
+                        </span>
+                        <pre v-else class="log-message">[[ line.message ]]</pre>
+                      </span>
+                    </li>
+                </ul>
+              </div>
+            </div>
+            <p v-else class="text-muted">Select file for view.</p>
+          </div>
+    </div>
+    </container>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+    new Vue({
+      el: '#logs_module',
+      delimiters: ['[[', ']]'], // Измененные разделители
+      data: {
+        search: '',
+        sortKey: 'runtime',
+        sortAsc: true,
+        files: [],
+        loading: false,
+        error: null,
+        filter: "", // Фильтр по имени файла
+        sortBy: "name", // Текущий метод сортировки
+        sortOptions: [
+            { value: "name", text: "Filename 🔼" },
+            { value: "-name", text: "Filename 🔽" },
+            { value: "size", text: "Size 🔼" },
+            { value: "-size", text: "Size 🔽" },
+            { value: "modified", text: "Updated 🔼" },
+            { value: "-modified", text: "Updated 🔽" },
+        ],
+        selectedLogs: [], // Выбранные файлы
+        searchQuery:'',
+        sortOrder:'asc',
+        selectedLevels:[],
+      },
+      async created() {
+        await this.fetchLogs()
+      },
+      mounted() {
+        if (localStorage.log_filter_file) {
+          this.filter = localStorage.log_filter_file;
+        }
+        if (localStorage.log_filter_content) {
+          this.searchQuery = localStorage.log_filter_content;
+        }
+        if (localStorage.log_sortBy_files) {
+          this.sortBy = localStorage.log_sortBy_files;
+        }
+        if (localStorage.log_sort_order) {
+          this.sortOrder = localStorage.log_sort_order;
+        }
+      },
+      watch: {
+        filter(value) {
+          localStorage.log_filter_file = value;
+        },
+        searchQuery(value) {
+          localStorage.log_filter_content = value;
+        },
+        sortBy(value) {
+          localStorage.log_sortBy_files = value;
+        },
+        sortOrder(value) {
+          localStorage.log_sort_order = value;
+        },
+      },
+      computed: {
+        // Фильтрация файлов по имени
+        filteredFiles() {
+            if (this.files.length == 0)
+                return []
+            return this.files.filter((file) =>
+                file.name.toLowerCase().includes(this.filter.toLowerCase())
+            );
+        },
+        // Сортировка отфильтрованных файлов
+        filteredAndSortedFiles() {
+            return [...this.filteredFiles].sort((a, b) => {
+                if (this.sortBy === "name") {
+                return a.name.localeCompare(b.name);
+                }else if (this.sortBy === "-name") {
+                return b.name.localeCompare(a.name);
+                } else if (this.sortBy === "size") {
+                return a.size - b.size;
+                } else if (this.sortBy === "-size") {
+                return b.size - a.size;
+                } else if (this.sortBy === "modified") {
+                return new Date(b.modified) - new Date(a.modified);
+                } else if (this.sortBy === "modified") {
+                return new Date(a.modified) - new Date(b.modified);
+                }
+                return 0;
+            });
+            },
+        filteredData() {
+          let data = this.tasks;
+          if (this.search) {
+            data = data.filter(row =>
+              Object.values(row).some(val =>
+                String(val).toLowerCase().includes(this.search.toLowerCase())
+              )
+            );
+          }
+          if (this.sortKey) {
+            data = data.slice().sort((a, b) => {
+              let aVal = a[this.sortKey];
+              let bVal = b[this.sortKey];
+  
+              if (aVal < bVal) return this.sortAsc ? -1 : 1;
+              if (aVal > bVal) return this.sortAsc ? 1 : -1;
+              return 0;
+            });
+          }
+          return data;
+        },
+      },
+      methods: {
+        fetchLogs() {
+          this.loading = true
+          axios.get(`/api/logs/list`)
+            .then(response => {
+            console.log(response.data)
+              this.files = response.data.result
+              this.loading = false
+            })
+            .catch(error => {
+              console.log(error)
+              self.error = error
+              this.loading = false
+            })
+            ;
+        },
+        // Переключение выбора файла
+        toggleSelection(file) {
+            console.log("togle",file)
+            const existingIndex = this.selectedLogs.findIndex((log) => log.name === file.name);
+            if (existingIndex !== -1) {
+                this.selectedLogs.splice(existingIndex, 1); // Удалить файл из выбранных
+            } else {
+                this.selectedLogs.push({ ...file, content: [], loading: false, collapse:false }); // Добавить файл
+                this.fetchLogFileContent(file.name);
+            }
+        },
+        setSelection(file){
+            console.log("set",file)
+            const existingIndex = this.selectedLogs.findIndex((log) => log.name === file.name);
+            this.selectedLogs = []
+            this.selectedLogs.push({ ...file, content: [], loading: false, collapse:false }); // Добавить файл
+            this.fetchLogFileContent(file.name);
+        },
+        // Проверка, выбран ли файл
+        isSelected(filename) {
+            return this.selectedLogs.some((log) => log.name === filename);
+        },
+        // Переключение многострочного сообщения
+        toggleMultiline(line) {
+            line.isExpanded = !line.isExpanded;
+        },
+        // Загрузка содержимого файла
+        fetchLogFileContent(filename) {
+        axios.get(`/api/logs/${filename}`).then((response) => {
+            const log = this.selectedLogs.find((log) => log.name === filename);
+            if (log) {
+                log.loading = true
+            }
+            const content = response.data.result.split('\n')
+            // Парсим логи с учетом многострочности
+            const parsedLogs = [];
+            let currentLog = null;
+
+            content.forEach((line) => {
+            // Проверяем, является ли строка началом новой записи
+            if (/^\d{2}:\d{2}:\d{2}\[.*?\]/.test(line)) {
+                if (currentLog) {
+                    parsedLogs.push(currentLog);
+                }
+                const match = line.match(/^(\d{2}:\d{2}:\d{2})\[(.*?)\](.*)/);
+                const category = match ? match[2] : "UNKNOWN";
+                var color = 'primary'
+                if (category == 'DEBUG') color='secondary'
+                else if (category == 'INFO') color='success'
+                else if (category == 'WARNING') color='warning'
+                else if (category == 'ERROR') color='danger'
+                else if (category == 'FATAL') color='danger'
+                currentLog = {
+                    color: color,
+                    time: match[1],
+                    level: category,
+                    message: match[3].trim(),
+                    isMultiline: false,
+                    isExpanded: false,
+                }
+            } else {
+                // Если это продолжение текущего лога, добавляем строку
+                if (currentLog && line !="") {
+                    currentLog.message += `\n${line}`;
+                    currentLog.isMultiline = true
+                }
+            }
+            });
+
+            if (currentLog) {
+                parsedLogs.push(currentLog);
+            }
+
+            if (log) {
+                log.content = parsedLogs;
+                log.loading = false
+            }
+        });
+        },
+        // Форматирование размера файла
+        formatSize(size) {
+            const kb = size / 1024;
+            return `${kb.toFixed(2)} KB`;
+        },
+        // Форматирование даты
+        formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString();
+        },
+        sortBy(key) {
+            if (this.sortKey === key) {
+                this.sortAsc = !this.sortAsc;
+            } else {
+                this.sortKey = key;
+                this.sortAsc = true;
+            }
+        },
+        getSortClass(key) {
+            if (this.sortKey === key) {
+                return this.sortAsc ? 'sortable asc' : 'sortable desc';
+            } else {
+                return '';
+            }
+        },
+        // Фильтрация и сортировка записей логов
+        filteredAndSortedLogEntries(log) {
+          return log.content
+            .filter((line) =>
+              line.message.toLowerCase().includes(this.searchQuery.toLowerCase()) &&
+              (this.selectedLevels.length === 0 || this.selectedLevels.includes(line.level))
+            )
+            .sort((a, b) => {
+              const timeA = a.time.replace(/:/g, '');
+              const timeB = b.time.replace(/:/g, '');
+              if (this.sortOrder === 'asc') {
+                return timeA.localeCompare(timeB);
+              } else if (this.sortOrder === 'desc') {
+                return timeB.localeCompare(timeA);
+              }
+              return 0;
+            });
+        },
+        // Подтверждение удаления файла
+        confirmDelete(file) {
+            if (window.confirm(`Are you sure you want to delete the file "${file.name}"?`)) {
+                this.deleteFile(file);
+            }
+        },
+        // Удаление файла
+        deleteFile(file) {
+            axios.delete(`/api/logs/${file.name}`).then((response) => {
+                const result = response.data.success
+                if (result) {
+                    const index = this.files.findIndex((f) => f.name === file.name);
+                    this.files.splice(index, 1); // Удаляем файл из списка
+                    alert(`File "${file.name}" success delete.`);
+                }
+            })
+          
+        },
+      }
+    });
+  </script>
+<style scoped>
+    .log-viewer {
+      font-family: Arial, sans-serif;
     }
-    .log-content {
-        height: 100vh;
-        overflow-y: auto;
-        background-color: #f8f8f8;
-        padding: 10px;
-        border-left: 1px solid #ccc;
+    .file-list {
+      max-height: calc(100vh - 130px); /* Ограничиваем высоту списка файлов */
+      overflow-y: auto; /* Добавляем прокрутку при необходимости */
     }
-    pre {
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        background-color: #f8f8f8;
-        padding: 10px;
-        border: 1px solid #ccc;
+    .list-group-item:hover {
+      cursor: pointer;
+      background-color: #f8f9fa;
+    }
+    .log-entry {
+      border-bottom: 1px solid #ddd;
+      padding: 4px;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    .log-message {
+      white-space: pre-wrap; /* Разрешаем перенос текста */
+      word-break: break-word; /* Разрешаем разрыв длинных слов */
+    }
+    .multiline-toggle {
+      cursor: pointer;
+      color: #007bff;
+      text-decoration: underline;
     }
 </style>
-
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-3 log-list">
-            <h3 class="mt-3">Logs</h3>
-            <ul class="list-group">
-                {% for log_file in log_files %}
-                    <li class="list-group-item">
-                        <form action="Logs" method="post" style="display:inline;">
-                            <input type="hidden" name="log_file" value="{{ log_file }}">
-                            <button type="submit" class="btn btn-link">{{ log_file }}</button>
-                        </form>
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-        <div class="col-md-9 log-content">
-            {% if selected_log_file %}
-                <h3 class="mt-3">Content: {{ selected_log_file }}</h3>
-                <pre>{{ log_content }}</pre>
-            {% else %}
-                <h3 class="mt-3">Select log for view</h3>
-            {% endif %}
-        </div>
-    </div>
-</div>
 {% endblock %}

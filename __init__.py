@@ -2,6 +2,7 @@ import os
 from flask import render_template, request
 from app.core.main.BasePlugin import BasePlugin
 from app.authentication.handlers import handle_admin_required
+from app.api import api
 
 LOGS_FOLDER = 'logs'
 
@@ -12,6 +13,10 @@ class Logs(BasePlugin):
         self.title = "Logs"
         self.description = """Logs viewer"""
         self.category = "System"
+
+        from plugins.Logs.api import create_api_ns
+        api_ns = create_api_ns()
+        api.add_namespace(api_ns, path="/logs")
     
     def initialization(self):
         pass
