@@ -280,56 +280,56 @@
         },
         // Загрузка содержимого файла
         fetchLogFileContent(filename) {
-        axios.get(`/api/logs/${filename}`).then((response) => {
             const log = this.selectedLogs.find((log) => log.name === filename);
             if (log) {
-                log.loading = true
+                    log.loading = true
             }
-            const content = response.data.result.split('\n')
-            // Парсим логи с учетом многострочности
-            const parsedLogs = [];
-            let currentLog = null;
+            axios.get(`/api/logs/${filename}`).then((response) => {
+                const content = response.data.result.split('\n')
+                // Парсим логи с учетом многострочности
+                const parsedLogs = [];
+                let currentLog = null;
 
-            content.forEach((line) => {
-            // Проверяем, является ли строка началом новой записи
-            if (/^\d{2}:\d{2}:\d{2}\[.*?\]/.test(line)) {
+                content.forEach((line) => {
+                // Проверяем, является ли строка началом новой записи
+                if (/^\d{2}:\d{2}:\d{2}\[.*?\]/.test(line)) {
+                    if (currentLog) {
+                        parsedLogs.push(currentLog);
+                    }
+                    const match = line.match(/^(\d{2}:\d{2}:\d{2})\[(.*?)\](.*)/);
+                    const category = match ? match[2] : "UNKNOWN";
+                    var color = 'primary'
+                    if (category == 'DEBUG') color='secondary'
+                    else if (category == 'INFO') color='success'
+                    else if (category == 'WARNING') color='warning'
+                    else if (category == 'ERROR') color='danger'
+                    else if (category == 'FATAL') color='danger'
+                    currentLog = {
+                        color: color,
+                        time: match[1],
+                        level: category,
+                        message: match[3].trim(),
+                        isMultiline: false,
+                        isExpanded: false,
+                    }
+                } else {
+                    // Если это продолжение текущего лога, добавляем строку
+                    if (currentLog && line !="") {
+                        currentLog.message += `\n${line}`;
+                        currentLog.isMultiline = true
+                    }
+                }
+                });
+
                 if (currentLog) {
                     parsedLogs.push(currentLog);
                 }
-                const match = line.match(/^(\d{2}:\d{2}:\d{2})\[(.*?)\](.*)/);
-                const category = match ? match[2] : "UNKNOWN";
-                var color = 'primary'
-                if (category == 'DEBUG') color='secondary'
-                else if (category == 'INFO') color='success'
-                else if (category == 'WARNING') color='warning'
-                else if (category == 'ERROR') color='danger'
-                else if (category == 'FATAL') color='danger'
-                currentLog = {
-                    color: color,
-                    time: match[1],
-                    level: category,
-                    message: match[3].trim(),
-                    isMultiline: false,
-                    isExpanded: false,
+
+                if (log) {
+                    log.content = parsedLogs;
+                    log.loading = false
                 }
-            } else {
-                // Если это продолжение текущего лога, добавляем строку
-                if (currentLog && line !="") {
-                    currentLog.message += `\n${line}`;
-                    currentLog.isMultiline = true
-                }
-            }
             });
-
-            if (currentLog) {
-                parsedLogs.push(currentLog);
-            }
-
-            if (log) {
-                log.content = parsedLogs;
-                log.loading = false
-            }
-        });
         },
         // Форматирование размера файла
         formatSize(size) {
