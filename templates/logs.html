@@ -76,19 +76,9 @@
                 </div>
                 <div class="col">
                     <label class="form-label">Filter by level...</label>
-                    <select
-                        v-model="selectedLevels"
-                        multiple
-                        class="form-select level-filter mb-3"
-                        placeholder="Filter by level..."
-                    >
-                        <option value="UNKNOWN">UNKNOWN</option>
-                        <option value="DEBUG">DEBUG</option>
-                        <option value="INFO">INFO</option>
-                        <option value="WARNING">WARNING</option>
-                        <option value="ERROR">ERROR</option>
-                        <option value="FATAL">FATAL</option>
-                    </select>
+                    <div>
+                        <div v-for="item in levels" class="badge m-1 p-2" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
+                    </div>
                 </div>
             </div>
               <div v-for="(log, index) in selectedLogs" :key="index">
@@ -154,6 +144,14 @@
         searchQuery:'',
         sortOrder:'asc',
         selectedLevels:[],
+        levels:[
+            {value:'UNKNOWN', color:"primary"},
+            {value:'DEBUG', color:"secondary"},
+            {value:'INFO', color:"success"},
+            {value:'WARNING', color:"warning"},
+            {value:'ERROR', color:"danger"},
+            {value:'FATAL', color:"danger"},
+        ]
       },
       async created() {
         await this.fetchLogs()
@@ -269,6 +267,12 @@
             this.selectedLogs = []
             this.selectedLogs.push({ ...file, content: [], loading: false, collapse:false }); // Добавить файл
             this.fetchLogFileContent(file.name);
+        },
+        toggleLevel(level){
+            if (this.selectedLevels.includes(level)) 
+                this.selectedLevels = this.selectedLevels.filter(item => item !== level);
+            else 
+                this.selectedLevels.push(level);
         },
         // Проверка, выбран ли файл
         isSelected(filename) {
