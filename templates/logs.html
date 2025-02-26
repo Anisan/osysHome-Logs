@@ -99,7 +99,7 @@
                       :key="lineIndex"
                       class="log-entry"
                     >
-                      <strong>[[ line.time ]] <span :class="'badge bg-'+line.color">[[line.level]]</span></strong>: 
+                      <strong>[[ line.time ]] <span :class="'badge bg-'+line.color">[[line.level]]</span></strong>
                       <span v-if="!line.isMultiline" class="log-message">[[ line.message ]]</span>
                       <span v-else>
                         <span v-if="!line.isExpanded" class="multiline-toggle" @click="toggleMultiline(line)">
@@ -150,7 +150,7 @@
             {value:'INFO', color:"success"},
             {value:'WARNING', color:"warning"},
             {value:'ERROR', color:"danger"},
-            {value:'FATAL', color:"danger"},
+            {value:'CRITICAL', color:"danger"},
         ]
       },
       async created() {
@@ -294,20 +294,21 @@
                 const parsedLogs = [];
                 let currentLog = null;
 
+                const regex = /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)]\s(.*)$/m;
+
                 content.forEach((line) => {
-                // Проверяем, является ли строка началом новой записи
-                if (/^\d{2}:\d{2}:\d{2}\[.*?\]/.test(line)) {
+                  const match = line.match(regex);
+                  if (match) {
                     if (currentLog) {
                         parsedLogs.push(currentLog);
                     }
-                    const match = line.match(/^(\d{2}:\d{2}:\d{2})\[(.*?)\](.*)/);
                     const category = match ? match[2] : "UNKNOWN";
                     var color = 'primary'
                     if (category == 'DEBUG') color='secondary'
                     else if (category == 'INFO') color='success'
                     else if (category == 'WARNING') color='warning'
                     else if (category == 'ERROR') color='danger'
-                    else if (category == 'FATAL') color='danger'
+                    else if (category == 'CRITICAL') color='danger'
                     currentLog = {
                         color: color,
                         time: match[1],
@@ -316,13 +317,13 @@
                         isMultiline: false,
                         isExpanded: false,
                     }
-                } else {
+                  } else {
                     // Если это продолжение текущего лога, добавляем строку
                     if (currentLog && line !="") {
                         currentLog.message += `\n${line}`;
                         currentLog.isMultiline = true
                     }
-                }
+                  }
                 });
 
                 if (currentLog) {
