@@ -2,7 +2,7 @@ import os
 import datetime
 from flask import jsonify
 from flask_restx import Namespace, Resource
-from app.api.decorators import api_key_required, role_required
+from app.authentication.handlers import handle_admin_required
 
 LOGS_DIR = 'logs'
 
@@ -13,7 +13,7 @@ def create_api_ns():
 
 @_api_ns.route("/list", endpoint="logs_list")
 class GetLogs(Resource):
-    @role_required("admin")
+    @handle_admin_required
     def get(self):
         """
         Получение списка файлов логов.
@@ -36,7 +36,7 @@ class GetLogs(Resource):
 
 @_api_ns.route("/<string:filename>", endpoint="log_content")
 class GetLogContent(Resource):
-    @role_required("admin")
+    @handle_admin_required
     def get(self, filename):
         """
         Получение содержимого файла лога.
@@ -53,7 +53,7 @@ class GetLogContent(Resource):
         except Exception as e:
             return {"success": False, "error": str(e)}, 500
 
-    @role_required("admin")
+    @handle_admin_required
     def delete(self, filename):
         """
         Удаление файла лога.
