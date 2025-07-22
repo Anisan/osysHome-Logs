@@ -1,7 +1,7 @@
 {% extends "layouts/module_admin.html" %}
 
 {% block breadcrumb %}
-<li class="breadcrumb-item"><a href="Logs">Logs</a></li>
+<li class="breadcrumb-item"><a href="Logs">{{ _('Logs')}}</a></li>
 {% endblock %}
 
 {% block module %}
@@ -9,7 +9,7 @@
     <div class="row h-100">
       <!-- Левая колонка: содержимое выбранных файлов -->
       <div class="col-auto file-list border-end pe-2">
-        <h4>Logs</h4>
+        <h4>{{ _('Logs')}}</h4>
         <!-- Фильтр по имени -->
         <div class="search-bar d-flex">
             <button  class="btn btn-primary btn-sm d-flex align-items-center mb-3" type="button" @click="fetchLogs()">
@@ -19,13 +19,13 @@
             v-model="filter"
             type="text"
             class="form-control mb-3"
-            placeholder="Search filename..."
+            placeholder="{{ _('Search filename...')}}"
             />
             <!-- Сортировка -->
             <select
             v-model="sortBy"
             class="form-select mb-3"
-            placeholder="Sort by..."
+            placeholder="{{ _('Sort by...')}}"
             >
                 <option v-for="item in sortOptions" :value="item.value">[[item.text]]</option>
             </select>
@@ -54,7 +54,7 @@
 
         <!-- Правая колонка -->
         <div class="col flex-grow-1 file-list">
-            <h4>Content</h4>
+            <h4>{{ _('Content')}}</h4>
             <div v-if="selectedLogs.length > 0">
               <div class="search-bar row">
                 <div class="col">
@@ -62,20 +62,20 @@
                       v-model="searchQuery"
                       type="text"
                       class="form-control mb-3"
-                      placeholder="Filter..."
+                      placeholder="{{ _('Filter...')}}"
                     />
-                    <label class="form-label">Sort by...</label>
+                    <label class="form-label">{{ _('Sort by...')}}</label>
                     <select
                         v-model="sortOrder"
                         class="form-select mb-3"
-                        placeholder="Sort by..."
+                        placeholder="{{ _('Sort by...')}}"
                     >
-                        <option value="asc">Time 🔼</option>
-                        <option value="desc">Time 🔽</option>
+                        <option value="asc">{{ _('Time')}} 🔼</option>
+                        <option value="desc">{{ _('Time')}} 🔽</option>
                     </select>
                 </div>
                 <div class="col">
-                    <label class="form-label">Filter by level...</label>
+                    <label class="form-label">{{ _('Filter by level...')}}</label>
                     <div>
                         <div v-for="item in levels" class="badge m-1 p-2" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
                     </div>
@@ -111,7 +111,7 @@
                 </ul>
               </div>
             </div>
-            <p v-else class="text-muted">Select file for view.</p>
+            <p v-else class="text-muted">{{ _('Select file for view.')}}</p>
           </div>
     </div>
     </container>
@@ -133,12 +133,12 @@
         filter: "", // Фильтр по имени файла
         sortBy: "name", // Текущий метод сортировки
         sortOptions: [
-            { value: "name", text: "Filename 🔼" },
-            { value: "-name", text: "Filename 🔽" },
-            { value: "size", text: "Size 🔼" },
-            { value: "-size", text: "Size 🔽" },
-            { value: "modified", text: "Updated 🔼" },
-            { value: "-modified", text: "Updated 🔽" },
+            { value: "name", text: "{{ _('Filename')}} 🔼" },
+            { value: "-name", text: "{{ _('Filename')}} 🔽" },
+            { value: "size", text: "{{ _('Size')}} 🔼" },
+            { value: "-size", text: "{{ _('Size')}} 🔽" },
+            { value: "modified", text: "{{ _('Updated')}} 🔼" },
+            { value: "-modified", text: "{{ _('Updated')}} 🔽" },
         ],
         selectedLogs: [], // Выбранные файлы
         searchQuery:'',
