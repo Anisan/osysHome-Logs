@@ -75,9 +75,13 @@
                     </select>
                 </div>
                 <div class="col">
-                    <label class="form-label">{{ _('Filter by level...')}}</label>
+                    <label v-if="modules.length > 0" class="form-label mb-1">{{ _('Filter by modules...')}}</label>
+                    <div v-if="modules.length > 0" class="mb-2">
+                        <div v-for="item in modules" class="badge m-1 p-1" :class="selectedModules.includes(item) ? 'bg-primary':'bg-light text-dark'" @click="toggleModule(item)">[[item]]</div>
+                    </div>
+                    <label class="form-label  mb-1">{{ _('Filter by level...')}}</label>
                     <div>
-                        <div v-for="item in levels" class="badge m-1 p-2" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
+                        <div v-for="item in levels" class="badge m-1 p-1" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
                     </div>
                 </div>
             </div>
@@ -99,7 +103,10 @@
                       :key="lineIndex"
                       class="log-entry"
                     >
-                      <strong>[[ line.time ]] <span :class="'badge bg-'+line.color">[[line.level]]</span></strong>
+                      <strong>[[ line.time ]] 
+                        <span :class="'badge bg-'+line.color">[[line.level]]</span>
+                        <span v-if="line.module" class="badge bg-primary">[[line.module]]</span>
+                      </strong>
                       <span v-if="!line.isMultiline" class="log-message">[[ line.message ]]</span>
                       <span v-else>
                         <span v-if="!line.isExpanded" class="multiline-toggle" @click="toggleMultiline(line)">
@@ -151,7 +158,9 @@
             {value:'WARNING', color:"warning"},
             {value:'ERROR', color:"danger"},
             {value:'CRITICAL', color:"danger"},
-        ]
+        ],
+        modules:[],
+        selectedModules:[],
       },
       async created() {
         await this.fetchLogs()
@@ -274,6 +283,12 @@
             else 
                 this.selectedLevels.push(level);
         },
+        toggleModule(module){
+            if (this.selectedModules.includes(module)) 
+                this.selectedModules = this.selectedModules.filter(item => item !== module);
+            else 
+                this.selectedModules.push(module);
+        },
         // Проверка, выбран ли файл
         isSelected(filename) {
             return this.selectedLogs.some((log) => log.name === filename);
@@ -284,6 +299,7 @@
         },
         // Загрузка содержимого файла
         fetchLogFileContent(filename) {
+            var parsedModules = [];
             const log = this.selectedLogs.find((log) => log.name === filename);
             if (log) {
                     log.loading = true
@@ -294,7 +310,7 @@
                 const parsedLogs = [];
                 let currentLog = null;
 
-                const regex = /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)]\s(.*)$/m;
+                const regex = /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)](?:\[([^\]]+)])?\s(.*)$/m;
 
                 content.forEach((line) => {
                   const match = line.match(regex);
@@ -309,11 +325,16 @@
                     else if (category == 'WARNING') color='warning'
                     else if (category == 'ERROR') color='danger'
                     else if (category == 'CRITICAL') color='danger'
+                    if (match[3]) {
+                      if (!parsedModules.includes(match[3]))
+                        parsedModules.push(match[3])
+                    }
                     currentLog = {
                         color: color,
                         time: match[1],
                         level: category,
-                        message: match[3].trim(),
+                        module: match[3],
+                        message: match[4].trim(),
                         isMultiline: false,
                         isExpanded: false,
                     }
@@ -329,6 +350,7 @@
                 if (currentLog) {
                     parsedLogs.push(currentLog);
                 }
+                this.modules = parsedModules;
 
                 if (log) {
                     log.content = parsedLogs;
@@ -367,6 +389,11 @@
             .filter((line) =>
               line.message.toLowerCase().includes(this.searchQuery.toLowerCase()) &&
               (this.selectedLevels.length === 0 || this.selectedLevels.includes(line.level))
+            )
+            .filter((line) =>
+              line.module == undefined || 
+              (line.module &&
+              (this.selectedModules.length === 0 || this.selectedModules.includes(line.module)))
             )
             .sort((a, b) => {
               const timeA = a.time.replace(/:/g, '');
