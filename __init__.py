@@ -1,7 +1,7 @@
 import os
-from flask import render_template, request
+import re
+from flask import render_template
 from app.core.main.BasePlugin import BasePlugin
-from app.authentication.handlers import handle_admin_required
 from app.api import api
 
 LOGS_FOLDER = 'logs'
@@ -13,11 +13,12 @@ class Logs(BasePlugin):
         self.title = "Logs"
         self.description = """Logs viewer"""
         self.category = "System"
+        self.actions = ["widget"]
 
         from plugins.Logs.api import create_api_ns
         api_ns = create_api_ns()
         api.add_namespace(api_ns, path="/logs")
-    
+
     def initialization(self):
         pass
 
@@ -45,5 +46,37 @@ class Logs(BasePlugin):
                 lines = f.readlines()
                 log_content = ''.join(lines[-50:][::-1])
 
-        return render_template('logs.html', log_files=log_files, selected_log_file=selected_log_file, log_content=log_content)
+        return render_template(
+            'logs.html',
+            log_files=log_files,
+            selected_log_file=selected_log_file,
+            log_content=log_content,
+        )
 
+    def widget(self, name: str = None):
+        error_count = self._get_error_count()
+        return self.render(
+            "widget_logs_errors.html",
+            {
+                "error_count": error_count,
+                "has_errors": error_count > 0,
+                "logs_admin_url": "/admin/Logs",
+            },
+        )
+
+    def _get_error_count(self) -> int:
+        error_log_path = os.path.join(LOGS_FOLDER, "errors.log")
+        if not os.path.exists(error_log_path):
+            return 0
+
+        entry_pattern = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}\[[A-Z]+\]")
+        count = 0
+        try:
+            with open(error_log_path, "r", encoding="utf-8", errors="ignore") as error_file:
+                for line in error_file:
+                    if entry_pattern.match(line):
+                        count += 1
+            return count
+        except OSError:
+            self.logger.exception("Failed to read errors.log for widget")
+        return 0
