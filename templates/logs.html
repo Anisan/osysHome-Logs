@@ -310,7 +310,7 @@
                 const parsedLogs = [];
                 let currentLog = null;
 
-                const regex = /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)](?:\[([^\]]+)])?\s(.*)$/m;
+                const regex = /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)](?:\[([^\]]*)])*([^\n\r]*)/m;
 
                 content.forEach((line) => {
                   const match = line.match(regex);
