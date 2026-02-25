@@ -1,12 +1,19 @@
 {
+  "Click to collapse": "Нажмите, чтобы свернуть",
   "Content": "Содержимое",
+  "Entries in errors.log": "Записей в errors.log",
+  "Errors log": "Журнал ошибок",
   "Filename": "Имя файла",
   "Filter by level...": "Фильтр по уровню...",
   "Filter by modules...": "Фильтр по модулям...",
   "Filter...": "Фильтр...",
   "Logs": "Файлы логов",
+  "Only part of the log is loaded": "Загружена только часть лога",
+  "Only part of the log is loaded. Use download to get full file.": "Загружена только часть лога. Для полного файла используйте скачивание.",
+  "Open logs": "Открыть логи",
   "Search filename...": "Поиск файла...",
   "Select file for view.": "Выберите файл для просмотра.",
   "Sort by...": "Сортировать по...",
-  "Time": "Время"
+  "click": "нажмите",
+  "lines": "строк"
 }

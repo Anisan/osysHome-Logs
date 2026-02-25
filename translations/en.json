@@ -1,12 +1,19 @@
 {
+  "Click to collapse": "Click to collapse",
   "Content": "Content",
+  "Entries in errors.log": "Entries in errors.log",
+  "Errors log": "Errors log",
   "Filename": "Filename",
   "Filter by level...": "Filter by level...",
   "Filter by modules...": "Filter by modules...",
   "Filter...": "Filter...",
   "Logs": "Logs",
+  "Only part of the log is loaded": "Only part of the log is loaded",
+  "Only part of the log is loaded. Use download to get full file.": "Only part of the log is loaded. Use download to get full file.",
+  "Open logs": "Open logs",
   "Search filename...": "Search filename...",
   "Select file for view.": "Select file for view.",
   "Sort by...": "Sort by...",
-  "Time": "Time"
+  "click": "click",
+  "lines": "lines"
 }

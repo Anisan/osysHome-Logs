@@ -3,8 +3,7 @@ import re
 from flask import render_template
 from app.core.main.BasePlugin import BasePlugin
 from app.api import api
-
-LOGS_FOLDER = 'logs'
+from plugins.Logs.api import LOGS_DIR as LOGS_FOLDER
 
 class Logs(BasePlugin):
 
@@ -69,7 +68,14 @@ class Logs(BasePlugin):
         if not os.path.exists(error_log_path):
             return 0
 
-        entry_pattern = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d{3}\[[A-Z]+\]")
+        # Регулярное выражение ДОЛЖНО полностью совпадать с Vue (`logs.html`):
+        # const regex =
+        #   /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)](?:\[([^\]]*)])*([^\n\r]*)/m;
+        # Здесь используем то же самое выражение — считаем записью только строки,
+        # которые фронтенд воспринимает как отдельный лог‑вход.
+        entry_pattern = re.compile(
+            r"^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)](?:\[([^\]]*)])*([^\n\r]*)"
+        )
         count = 0
         try:
             with open(error_log_path, "r", encoding="utf-8", errors="ignore") as error_file:

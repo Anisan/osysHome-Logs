@@ -5,47 +5,81 @@
 {% endblock %}
 
 {% block module %}
-<div id="logs_module" class="log-viewer container-fluid p-0">
+<style>
+  /* Скрывает элементы до инициализации Vue */
+  [v-cloak] {
+    position: relative;
+    min-height: 200px;
+  }
+  [v-cloak] > * {
+    display: none !important;
+  }
+  /* Показываем спиннер пока v-cloak активен */
+  [v-cloak]::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 3rem;
+    height: 3rem;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #0d6efd;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    display: block;
+    z-index: 1000;
+  }
+  @keyframes spin {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+</style>
+<div id="logs_module" class="container-fluid p-0" v-cloak>
     <div class="row h-100">
-      <!-- Левая колонка: содержимое выбранных файлов -->
-      <div class="col-auto file-list border-end pe-2">
-        <h4>{{ _('Logs')}}</h4>
-        <!-- Фильтр по имени -->
-        <div class="search-bar d-flex">
-            <button  class="btn btn-primary btn-sm d-flex align-items-center mb-3" type="button" @click="fetchLogs()">
-                <span class="fas fa-rotate" :class="{ 'fa-spin' : loading }"></span>
-            </button >
+      <!-- Левая колонка: список файлов + фильтры -->
+      <div class="col-auto border-end pe-2 d-flex flex-column" style="max-height: calc(100vh - 130px); overflow-y: auto;">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <h4 class="mb-0">{{ _('Logs')}}</h4>
+          <button  class="btn btn-outline-primary btn-sm d-flex align-items-center" type="button" @click="fetchLogs()">
+              <span class="fas fa-rotate" :class="{ 'fa-spin' : loading }"></span>
+          </button>
+        </div>
+        <!-- Фильтр по имени и сортировка -->
+        <div class="search-bar d-flex gap-2 mb-2">
             <input
-            v-model="filter"
-            type="text"
-            class="form-control mb-3"
-            placeholder="{{ _('Search filename...')}}"
+              v-model="filter"
+              type="text"
+              class="form-control form-control-sm"
+              :placeholder="'{{ _('Search filename...')}}'"
             />
-            <!-- Сортировка -->
             <select
-            v-model="sortBy"
-            class="form-select mb-3"
-            placeholder="{{ _('Sort by...')}}"
+              v-model="sortBy"
+              class="form-select form-select-sm"
             >
-                <option v-for="item in sortOptions" :value="item.value">[[item.text]]</option>
+              <option v-for="item in sortOptions" :value="item.value">[[item.text]]</option>
             </select>
         </div>
         <!-- Список файлов -->
-        <ul class="list-group">
+        <ul class="list-group flex-grow-1 overflow-auto">
             <li
                 v-for="(file, index) in filteredAndSortedFiles"
                 :key="index"
-                class="list-group-item"
+                class="list-group-item list-group-item-action"
                 @click="setSelection(file)"
             >
-                <div class="d-flex w-100 justify-content-between">
-                    <div style="cursor: pointer;">
+                <div class="d-flex w-100 justify-content-between align-items-center">
+                    <div style="cursor: pointer">
                         <input class="form-check-input me-2" type="checkbox" :checked="isSelected(file.name)" @click.stop="toggleSelection(file)">
                         [[ file.name ]]
                     </div>
-                    <a class="link" @click.stop="confirmDelete(file)">
-                        <i class="feather icon-trash text-danger"></i>
-                    </a>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      @click.stop="confirmDelete(file)"
+                    >
+                      <i class="feather icon-trash"></i>
+                    </button>
                 </div>
                 <small class="text-muted">[[ formatSize(file.size) ]] | [[ formatDate(file.modified) ]]</small>
             </li>
@@ -53,21 +87,22 @@
       </div>
 
         <!-- Правая колонка -->
-        <div class="col flex-grow-1 file-list">
+        <div class="col flex-grow-1">
             <h4>{{ _('Content')}}</h4>
             <div v-if="selectedLogs.length > 0">
               <div class="search-bar row">
-                <div class="col">
-                    <input
-                      v-model="searchQuery"
-                      type="text"
-                      class="form-control mb-3"
-                      placeholder="{{ _('Filter...')}}"
-                    />
-                    <label class="form-label">{{ _('Sort by...')}}</label>
+                <div class="col-auto">
+                  <div class="input-group mb-1">
+                    <span class="input-group-text"><i class="fas fa-filter"></i></span>
+                    <input type="text" v-model="searchQuery" class="form-control" placeholder="{{ _('Filter...')}}">
+                    <button class="btn btn-outline-secondary" type="button" @click="clearContentFilter">
+                      <i class="fas fa-times me-1"></i>
+                    </button>
+                  </div>
+                    <label class="form-label mb-1">{{ _('Sort by...')}}</label>
                     <select
                         v-model="sortOrder"
-                        class="form-select mb-3"
+                        class="form-select mb-1"
                         placeholder="{{ _('Sort by...')}}"
                     >
                         <option value="asc">{{ _('Time')}} 🔼</option>
@@ -76,52 +111,81 @@
                 </div>
                 <div class="col">
                     <label v-if="modules.length > 0" class="form-label mb-1">{{ _('Filter by modules...')}}</label>
-                    <div v-if="modules.length > 0" class="mb-2">
-                        <div v-for="item in modules" class="badge m-1 p-1" :class="selectedModules.includes(item) ? 'bg-primary':'bg-light text-dark'" @click="toggleModule(item)">[[item]]</div>
+                    <div v-if="modules.length > 0" class="mb-0">
+                        <div v-for="item in modules" class="badge me-1 p-1" :class="selectedModules.includes(item) ? 'bg-primary':'bg-light text-dark'" @click="toggleModule(item)">[[item]]</div>
                     </div>
-                    <label class="form-label  mb-1">{{ _('Filter by level...')}}</label>
+                    <label class="form-label  mb-0">{{ _('Filter by level...')}}</label>
                     <div>
-                        <div v-for="item in levels" class="badge m-1 p-1" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
+                        <div v-for="item in levels" class="badge me-1 p-1" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
                     </div>
                 </div>
             </div>
-              <div v-for="(log, index) in selectedLogs" :key="index">
+              <div v-for="(log, index) in selectedLogs" :key="index" class="rounded border shadow-sm p-2 mb-3 d-flex flex-column">
                 <div class="d-flex align-items-center mb-2">
+                  <div class="d-flex align-items-center flex-grow-1">
                     <a class="link" @click="fetchLogFileContent(log.name)">
                         <span class="fas fa-rotate" :class="{ 'fa-spin' : log.loading }"></span>
                     </a>
-                    <h5 class="mx-3 mt-2">
+                    <div class="mx-3 mt-2 mb-0 flex-grow-1 text-truncate">
+                      <h5 class="mb-0 text-truncate">
                         [[ log.name ]]
-                    </h5>
+                        <small
+                          v-if="log.loadedLines && log.totalLines && log.content"
+                          class="text-muted ms-2"
+                        >
+                          [[ log.loadedLines ]] / [[ log.totalLines ]] {{ _('lines') }},
+                          [[ log.content.length ]] {{ _('entries') }}
+                        </small>
+                      </h5>
+                    </div>
+                  </div>
+                  <div class="d-flex align-items-center gap-2">
+                    <small v-if="log.truncated" class="text-muted d-none d-md-inline">
+                      {{ _('Only part of the log is loaded') }}
+                    </small>
+                    <a
+                      class="btn btn-sm btn-outline-secondary"
+                      :href="downloadHref(log.name)"
+                      @click.stop
+                    >
+                      <i class="feather icon-download"></i>
+                    </a>
                     <a class="link" @click.stop="log.collapse = !log.collapse">
                         <span class="fas" :class="log.collapse ? 'fa-chevron-up' : 'fa-chevron-down'"></span>
                     </a>
+                  </div>
                 </div>
-                <ul class="list-unstyled" v-show="!log.collapse">
-                    <li
-                      v-for="(line, lineIndex) in filteredAndSortedLogEntries(log)"
-                      :key="lineIndex"
-                      class="log-entry"
-                    >
-                      <strong>[[ line.time ]] 
-                        <span :class="'badge bg-'+line.color">[[line.level]]</span>
-                        <span v-if="line.module" class="badge bg-primary">[[line.module]]</span>
-                      </strong>
-                      <span v-if="!line.isMultiline" class="log-message">[[ line.message ]]</span>
+                <div v-show="!log.collapse" class="overflow-auto rounded border p-2 min-vh-0">
+                  <div v-if="log.truncated" class="alert alert-warning py-1 px-2 mb-2">
+                    {{ _('Only part of the log is loaded. Use download to get full file.') }}
+                  </div>
+                  <div
+                    v-for="(line, lineIndex) in filteredAndSortedLogEntries(log)"
+                    :key="lineIndex"
+                    :class="['d-flex align-items-start border-bottom p-1 small', { 'border-bottom-0': lineIndex === filteredAndSortedLogEntries(log).length - 1 }]"
+                  >
+                    <span class="d-flex align-items-center gap-1 me-2 small">
+                      <span class="text-body-secondary font-monospace">[[ line.time ]]</span>
+                      <span :class="'badge ms-1 me-1 bg-'+line.color">[[line.level]]</span>
+                      <span v-if="line.module" class="badge bg-primary">[[line.module]]</span>
+                    </span>
+                    <span class="flex-grow-1">
+                      <span v-if="!line.isMultiline" class="font-monospace small text-break" style="white-space: pre-wrap">[[ line.message ]]</span>
                       <span v-else>
-                        <span v-if="!line.isExpanded" class="multiline-toggle" @click="toggleMultiline(line)">
-                          [[ line.message.split('\n')[0] ]]... (click)
+                        <span v-if="!line.isExpanded" class="link-primary text-decoration-underline" style="cursor: pointer" @click="toggleMultiline(line)">
+                          [[ line.message.split('\n')[0] ]]... ({{ _('click') }})
                         </span>
-                        <pre v-else class="log-message">[[ line.message ]]</pre>
+                        <pre v-else class="font-monospace small text-break mb-0" style="white-space: pre-wrap; cursor: pointer" @click="toggleMultiline(line)" title="{{ _('Click to collapse') }}">[[ line.message ]]</pre>
                       </span>
-                    </li>
-                </ul>
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
             <p v-else class="text-muted">{{ _('Select file for view.')}}</p>
           </div>
     </div>
-    </container>
+    </div>
   </div>
 </div>
 <script src="{{ config.ASSETS_ROOT }}/plugins/vue/vue@2.js"></script>
@@ -191,6 +255,11 @@
         },
         sortOrder(value) {
           localStorage.log_sort_order = value;
+          // При смене сортировки по времени перезагружаем выбранные логи,
+          // чтобы с сервера подтянуть начало или конец файла в соответствии с порядком.
+          this.selectedLogs.forEach(log => {
+            this.fetchLogFileContent(log.name);
+          });
         },
       },
       computed: {
@@ -215,7 +284,7 @@
                 return b.size - a.size;
                 } else if (this.sortBy === "modified") {
                 return new Date(b.modified) - new Date(a.modified);
-                } else if (this.sortBy === "modified") {
+                } else if (this.sortBy === "-modified") {
                 return new Date(a.modified) - new Date(b.modified);
                 }
                 return 0;
@@ -244,6 +313,11 @@
         },
       },
       methods: {
+        clearContentFilter() {
+          this.searchQuery = '';
+          this.selectedLevels = [];
+          this.selectedModules = [];
+        },
         fetchLogs() {
           this.loading = true
           axios.get(`/api/logs/list`)
@@ -251,10 +325,22 @@
             console.log(response.data)
               this.files = response.data.result
               this.loading = false
+              try {
+                const params = new URLSearchParams(window.location.search);
+                const initialFile = params.get('file');
+                if (initialFile && this.selectedLogs.length === 0) {
+                  const file = this.files.find(f => f.name === initialFile);
+                  if (file) {
+                    this.setSelection(file);
+                  }
+                }
+              } catch (e) {
+                console.warn('Failed to apply initial file selection from URL params', e);
+              }
             })
             .catch(error => {
               console.log(error)
-              self.error = error
+              this.error = error
               this.loading = false
             })
             ;
@@ -297,15 +383,27 @@
         toggleMultiline(line) {
             line.isExpanded = !line.isExpanded;
         },
-        // Загрузка содержимого файла
+        // Загрузка содержимого файла (частично, для больших логов)
         fetchLogFileContent(filename) {
             var parsedModules = [];
             const log = this.selectedLogs.find((log) => log.name === filename);
             if (log) {
                     log.loading = true
             }
-            axios.get(`/api/logs/${filename}`).then((response) => {
-                const content = response.data.result.split('\n')
+            const MAX_LINES = 3000;
+            const position = this.sortOrder === 'asc' ? 'start' : 'end';
+            axios.get(`/api/logs/${filename}`, {
+                params: {
+                    lines: MAX_LINES,
+                    position: position,
+                },
+            }).then((response) => {
+                const rawContent = response.data.result || ''
+                const content = rawContent.split('\n')
+                let loadedLines = content.length
+                if (loadedLines > 0 && content[loadedLines - 1] === '') {
+                    loadedLines -= 1
+                }
                 // Парсим логи с учетом многострочности
                 const parsedLogs = [];
                 let currentLog = null;
@@ -351,9 +449,17 @@
                     parsedLogs.push(currentLog);
                 }
                 this.modules = parsedModules;
+                // Если выбранные модули отсутствуют в новом файле — сбрасываем их из фильтра
+                if (Array.isArray(this.selectedModules) && this.selectedModules.length > 0) {
+                  this.selectedModules = this.selectedModules.filter((m) => parsedModules.includes(m));
+                }
 
                 if (log) {
                     log.content = parsedLogs;
+                    // сервер сообщает, была ли отдана только часть файла
+                    log.truncated = !!response.data.truncated;
+                    log.loadedLines = loadedLines;
+                    log.totalLines = response.data.total_lines || loadedLines;
                     log.loading = false
                 }
             });
@@ -406,54 +512,34 @@
               return 0;
             });
         },
+        downloadHref(name) {
+          return `/api/logs/${encodeURIComponent(name)}/download`;
+        },
         // Подтверждение удаления файла
         confirmDelete(file) {
             if (window.confirm(`Are you sure you want to delete the file "${file.name}"?`)) {
                 this.deleteFile(file);
             }
         },
-        // Удаление файла
+        // Удаление файла без перезагрузки страницы
         deleteFile(file) {
             axios.delete(`/api/logs/${file.name}`).then((response) => {
                 const result = response.data.success
                 if (result) {
+                    // Удаляем файл из списка слева
                     const index = this.files.findIndex((f) => f.name === file.name);
-                    this.files.splice(index, 1); // Удаляем файл из списка
-                    alert(`File "${file.name}" success delete.`);
+                    if (index !== -1) {
+                      this.files.splice(index, 1);
+                    }
+                    // И из выбранных логов справа
+                    const selectedIndex = this.selectedLogs.findIndex((log) => log.name === file.name);
+                    if (selectedIndex !== -1) {
+                      this.selectedLogs.splice(selectedIndex, 1);
+                    }
                 }
             })
-          
         },
       }
     });
   </script>
-<style scoped>
-    .log-viewer {
-      font-family: Arial, sans-serif;
-    }
-    .file-list {
-      max-height: calc(100vh - 130px); /* Ограничиваем высоту списка файлов */
-      overflow-y: auto; /* Добавляем прокрутку при необходимости */
-    }
-    .list-group-item:hover {
-      cursor: pointer;
-      background-color: #f8f9fa;
-    }
-    .log-entry {
-      border-bottom: 1px solid #ddd;
-      padding: 4px;
-    }
-    .log-entry:last-child {
-      border-bottom: none;
-    }
-    .log-message {
-      white-space: pre-wrap; /* Разрешаем перенос текста */
-      word-break: break-word; /* Разрешаем разрыв длинных слов */
-    }
-    .multiline-toggle {
-      cursor: pointer;
-      color: #007bff;
-      text-decoration: underline;
-    }
-</style>
 {% endblock %}
