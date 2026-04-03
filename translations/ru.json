@@ -7,13 +7,18 @@
   "Filter by level...": "Фильтр по уровню...",
   "Filter by modules...": "Фильтр по модулям...",
   "Filter...": "Фильтр...",
+  "Fullscreen": "Полноэкранный режим",
+  "Exit fullscreen": "Выйти из полноэкранного режима",
+  "Line mode": "Режим строк",
   "Logs": "Файлы логов",
+  "One line": "Одна строка",
   "Only part of the log is loaded": "Загружена только часть лога",
   "Only part of the log is loaded. Use download to get full file.": "Загружена только часть лога. Для полного файла используйте скачивание.",
   "Open logs": "Открыть логи",
   "Search filename...": "Поиск файла...",
   "Select file for view.": "Выберите файл для просмотра.",
   "Sort by...": "Сортировать по...",
+  "Word wrap": "Перенос слов",
   "click": "нажмите",
   "lines": "строк"
 }

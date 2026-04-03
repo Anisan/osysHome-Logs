@@ -19,6 +19,9 @@ The `Logs` module provides a log viewer interface for the osysHome platform. It 
   - by module.
 - ✅ **Sorting**: Sort entries by time (ascending/descending)
 - ✅ **Multiline Support**: Collapsible/expandable multiline messages (stack traces, long payloads)
+- ✅ **Line Mode Switch**: Choose between `Word wrap` and `One line` modes for log message rendering
+- ✅ **Fullscreen Content Mode**: Expand only the content area (filters + log entries) to fullscreen
+- ✅ **Quick Exit by Esc**: Leave fullscreen mode with the `Esc` key
 - ✅ **Line & Entry Counters**: Shows `loaded / total` lines and number of parsed entries per file
 - ✅ **Widget Support**: Dashboard widget showing error count based on the same regex as the viewer
 - ✅ **API Integration**: RESTful API for log access and partial loading
@@ -35,8 +38,10 @@ The module provides a Vue‑based admin interface:
   - Scrollable list that fits the viewport
 - **Content Area** (right column)
   - One card per selected file
-  - Per‑file toolbar: reload, download, collapse/expand content
+  - Per‐file toolbar: reload, download, collapse/expand content
   - Counters: loaded lines / total lines, number of parsed entries
+  - Line rendering mode selector (`Word wrap` / `One line`)
+  - Fullscreen toggle for content-only view
 
 ### Log Display
 - Entries are parsed with the same regex on backend and frontend:
@@ -83,6 +88,9 @@ The module provides RESTful API endpoints for programmatic log access:
    - The card shows how many lines were loaded vs total,
    - If the file is truncated, a warning is shown.
 5. Click on multiline entries marked with `(click)` to expand/collapse details.
+6. Use **Line mode** to switch between wrapped lines and single-line truncation.
+7. Use the fullscreen button in the **Content** header to focus only on content and filters.
+8. Press `Esc` to exit fullscreen mode quickly.
 
 ### Error Monitoring
 

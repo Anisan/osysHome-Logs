@@ -6,39 +6,85 @@
 
 {% block module %}
 <style>
-  /* Скрывает элементы до инициализации Vue */
-  [v-cloak] {
-    position: relative;
-    min-height: 200px;
+  /* Keep list and content side-by-side even with long log lines */
+  .logs-layout {
+    flex-wrap: nowrap;
   }
-  [v-cloak] > * {
+
+  .logs-files-col {
+    min-width: 320px;
+  }
+
+  .logs-content-col {
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .logs-layout.content-fullscreen .logs-files-col {
     display: none !important;
   }
-  /* Показываем спиннер пока v-cloak активен */
-  [v-cloak]::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 3rem;
-    height: 3rem;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #0d6efd;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    display: block;
-    z-index: 1000;
+
+  .logs-layout.content-fullscreen .logs-content-col {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: var(--bs-body-bg);
+    padding: 12px;
+    overflow-y: auto;
+    max-width: 100%;
+    flex: 0 0 100%;
   }
-  @keyframes spin {
-    0% { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
+
+  .log-line {
+    min-width: 0;
+  }
+
+  .log-line-meta {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .log-line-message {
+    display: block;
+    flex: 1 1 0;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  .log-line-message pre {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+
+  .log-line-message.mode-truncate {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  .log-line-message.mode-truncate pre {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
   }
 </style>
 <div id="logs_module" class="container-fluid p-0" v-cloak>
-    <div class="row h-100">
+    <div class="row h-100 logs-layout" :class="{ 'content-fullscreen': isContentFullscreen }">
       <!-- Левая колонка: список файлов + фильтры -->
-      <div class="col-auto border-end pe-2 d-flex flex-column" style="max-height: calc(100vh - 130px); overflow-y: auto;">
+      <div class="col-auto border-end pe-2 d-flex flex-column logs-files-col" style="max-height: calc(100vh - 130px); overflow-y: auto;">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <h4 class="mb-0">{{ _('Logs')}}</h4>
           <button  class="btn btn-outline-primary btn-sm d-flex align-items-center" type="button" @click="fetchLogs()">
@@ -87,10 +133,20 @@
       </div>
 
         <!-- Правая колонка -->
-        <div class="col flex-grow-1">
-            <h4>{{ _('Content')}}</h4>
+        <div class="col flex-grow-1 logs-content-col">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <h4 class="mb-0">{{ _('Content')}}</h4>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                @click="toggleContentFullscreen"
+                :title="isContentFullscreen ? '{{ _('Exit fullscreen') }}' : '{{ _('Fullscreen') }}'"
+              >
+                <i class="fas" :class="isContentFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+              </button>
+            </div>
             <div v-if="selectedLogs.length > 0">
-              <div class="search-bar row">
+              <div class="search-bar row align-items-start">
                 <div class="col-auto">
                   <div class="input-group mb-1">
                     <span class="input-group-text"><i class="fas fa-filter"></i></span>
@@ -118,6 +174,15 @@
                     <div>
                         <div v-for="item in levels" class="badge me-1 p-1" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
                     </div>
+                </div>
+                <div class="col-auto ms-auto align-self-end mb-1">
+                  <div style="min-width: 280px;">
+                    <label class="form-label mb-1">{{ _('Line mode')}}</label>
+                    <select v-model="lineWrapMode" class="form-select form-select-sm">
+                      <option value="wrap">{{ _('Word wrap') }}</option>
+                      <option value="truncate">{{ _('One line') }}</option>
+                    </select>
+                  </div>
                 </div>
             </div>
               <div v-for="(log, index) in selectedLogs" :key="index" class="rounded border shadow-sm p-2 mb-3 d-flex flex-column">
@@ -155,27 +220,27 @@
                     </a>
                   </div>
                 </div>
-                <div v-show="!log.collapse" class="overflow-auto rounded border p-2 min-vh-0">
+                <div v-show="!log.collapse" class="rounded border p-2 min-vh-0" style="overflow-y: auto; overflow-x: hidden;">
                   <div v-if="log.truncated" class="alert alert-warning py-1 px-2 mb-2">
                     {{ _('Only part of the log is loaded. Use download to get full file.') }}
                   </div>
                   <div
                     v-for="(line, lineIndex) in filteredAndSortedLogEntries(log)"
                     :key="lineIndex"
-                    :class="['d-flex align-items-start border-bottom p-1 small', { 'border-bottom-0': lineIndex === filteredAndSortedLogEntries(log).length - 1 }]"
+                    :class="['d-flex align-items-start border-bottom p-1 small log-line', { 'border-bottom-0': lineIndex === filteredAndSortedLogEntries(log).length - 1 }]"
                   >
-                    <span class="d-flex align-items-center gap-1 me-2 small">
+                    <span class="d-flex align-items-center gap-1 me-2 small log-line-meta">
                       <span class="text-body-secondary font-monospace">[[ line.time ]]</span>
                       <span :class="'badge ms-1 me-1 bg-'+line.color">[[line.level]]</span>
                       <span v-if="line.module" class="badge bg-primary">[[line.module]]</span>
                     </span>
-                    <span class="flex-grow-1">
-                      <span v-if="!line.isMultiline" class="font-monospace small text-break" style="white-space: pre-wrap">[[ line.message ]]</span>
+                    <span :class="['log-line-message', lineWrapModeClass]">
+                      <span v-if="!line.isMultiline" :class="['font-monospace small text-break log-line-message', lineWrapModeClass]">[[ line.message ]]</span>
                       <span v-else>
-                        <span v-if="!line.isExpanded" class="link-primary text-decoration-underline" style="cursor: pointer" @click="toggleMultiline(line)">
+                        <span v-if="!line.isExpanded" :class="['link-primary text-decoration-underline log-line-message', lineWrapModeClass]" style="cursor: pointer; display: block;" @click="toggleMultiline(line)">
                           [[ line.message.split('\n')[0] ]]... ({{ _('click') }})
                         </span>
-                        <pre v-else class="font-monospace small text-break mb-0" style="white-space: pre-wrap; cursor: pointer" @click="toggleMultiline(line)" title="{{ _('Click to collapse') }}">[[ line.message ]]</pre>
+                        <pre v-else :class="['font-monospace small text-break mb-0 log-line-message', lineWrapModeClass]" style="cursor: pointer" @click="toggleMultiline(line)" title="{{ _('Click to collapse') }}">[[ line.message ]]</pre>
                       </span>
                     </span>
                   </div>
@@ -214,6 +279,8 @@
         selectedLogs: [], // Выбранные файлы
         searchQuery:'',
         sortOrder:'asc',
+        lineWrapMode:'wrap',
+        isContentFullscreen:false,
         selectedLevels:[],
         levels:[
             {value:'UNKNOWN', color:"primary"},
@@ -230,6 +297,7 @@
         await this.fetchLogs()
       },
       mounted() {
+        window.addEventListener('keydown', this.handleGlobalKeydown);
         if (localStorage.log_filter_file) {
           this.filter = localStorage.log_filter_file;
         }
@@ -242,6 +310,12 @@
         if (localStorage.log_sort_order) {
           this.sortOrder = localStorage.log_sort_order;
         }
+        if (localStorage.log_line_wrap_mode) {
+          this.lineWrapMode = localStorage.log_line_wrap_mode;
+        }
+      },
+      beforeDestroy() {
+        window.removeEventListener('keydown', this.handleGlobalKeydown);
       },
       watch: {
         filter(value) {
@@ -261,8 +335,14 @@
             this.fetchLogFileContent(log.name);
           });
         },
+        lineWrapMode(value) {
+          localStorage.log_line_wrap_mode = value;
+        },
       },
       computed: {
+        lineWrapModeClass() {
+          return this.lineWrapMode === 'truncate' ? 'mode-truncate' : 'mode-wrap';
+        },
         // Фильтрация файлов по имени
         filteredFiles() {
             if (this.files.length == 0)
@@ -317,6 +397,14 @@
           this.searchQuery = '';
           this.selectedLevels = [];
           this.selectedModules = [];
+        },
+        toggleContentFullscreen() {
+          this.isContentFullscreen = !this.isContentFullscreen;
+        },
+        handleGlobalKeydown(event) {
+          if (event.key === 'Escape' && this.isContentFullscreen) {
+            this.isContentFullscreen = false;
+          }
         },
         fetchLogs() {
           this.loading = true
@@ -543,3 +631,4 @@
     });
   </script>
 {% endblock %}
+

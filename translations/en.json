@@ -7,13 +7,18 @@
   "Filter by level...": "Filter by level...",
   "Filter by modules...": "Filter by modules...",
   "Filter...": "Filter...",
+  "Fullscreen": "Fullscreen",
+  "Exit fullscreen": "Exit fullscreen",
+  "Line mode": "Line mode",
   "Logs": "Logs",
+  "One line": "One line",
   "Only part of the log is loaded": "Only part of the log is loaded",
   "Only part of the log is loaded. Use download to get full file.": "Only part of the log is loaded. Use download to get full file.",
   "Open logs": "Open logs",
   "Search filename...": "Search filename...",
   "Select file for view.": "Select file for view.",
   "Sort by...": "Sort by...",
+  "Word wrap": "Word wrap",
   "click": "click",
   "lines": "lines"
 }
