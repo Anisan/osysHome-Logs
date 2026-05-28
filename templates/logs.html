@@ -80,6 +80,65 @@
     text-overflow: ellipsis;
     overflow: hidden;
   }
+
+  .raw-log-text {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .raw-log-text.mode-wrap {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .raw-log-text.mode-truncate {
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .log-controls-grid {
+    display: grid;
+    grid-template-columns: 220px minmax(360px, 420px) 1fr;
+    gap: 14px;
+    align-items: start;
+    margin-bottom: 8px;
+  }
+
+  .log-controls-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .log-controls-col .form-label {
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+  }
+
+  .log-controls-col .form-select,
+  .log-controls-col .form-control {
+    width: 100%;
+  }
+
+  .log-controls-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Keep filter input + clear button on one line */
+  .log-controls-col .input-group {
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
+  }
+
+  .log-controls-col .input-group .form-control {
+    min-width: 0;
+  }
 </style>
 <div id="logs_module" class="container-fluid p-0" v-cloak>
     <div class="row h-100 logs-layout" :class="{ 'content-fullscreen': isContentFullscreen }">
@@ -146,45 +205,71 @@
               </button>
             </div>
             <div v-if="selectedLogs.length > 0">
-              <div class="search-bar row align-items-start">
-                <div class="col-auto">
-                  <div class="input-group mb-1">
-                    <span class="input-group-text"><i class="fas fa-filter"></i></span>
-                    <input type="text" v-model="searchQuery" class="form-control" placeholder="{{ _('Filter...')}}">
-                    <button class="btn btn-outline-secondary" type="button" @click="clearContentFilter">
-                      <i class="fas fa-times me-1"></i>
-                    </button>
-                  </div>
-                    <label class="form-label mb-1">{{ _('Sort by...')}}</label>
-                    <select
-                        v-model="sortOrder"
-                        class="form-select mb-1"
-                        placeholder="{{ _('Sort by...')}}"
-                    >
-                        <option value="asc">{{ _('Time')}} 🔼</option>
-                        <option value="desc">{{ _('Time')}} 🔽</option>
+              <div class="log-controls-grid">
+                <div class="log-controls-col">
+                  <label class="form-label mb-0">{{ _('View mode')}}</label>
+                  <select v-model="contentViewMode" class="form-select form-select-sm">
+                    <option value="parsed">{{ _('Parsed') }}</option>
+                    <option value="raw">{{ _('Raw') }}</option>
+                  </select>
+
+                  <label class="form-label mb-0">{{ _('Line mode')}}</label>
+                  <select v-model="lineWrapMode" class="form-select form-select-sm">
+                    <option value="wrap">{{ _('Word wrap') }}</option>
+                    <option value="truncate">{{ _('One line') }}</option>
+                  </select>
+                </div>
+
+                <div class="log-controls-col"  v-if="contentViewMode === 'parsed'">
+                    <label class="form-label mb-0">{{ _('Filter...')}}</label>
+                    <div class="input-group mb-0">
+                      <span class="input-group-text"><i class="fas fa-filter"></i></span>
+                      <input
+                        type="text"
+                        v-model="searchQuery"
+                          class="form-control form-control-sm"
+                        placeholder="{{ _('Filter...')}}"
+                      />
+                        <button class="btn btn-outline-secondary btn-sm" type="button" @click="clearContentFilter">
+                        <i class="fas fa-times me-1"></i>
+                      </button>
+                    </div>
+
+                    <label class="form-label mb-0">{{ _('Sort by...')}}</label>
+                    <select v-model="sortOrder" class="form-select form-select-sm">
+                      <option value="asc">{{ _('Time')}} 🔼</option>
+                      <option value="desc">{{ _('Time')}} 🔽</option>
                     </select>
                 </div>
-                <div class="col">
-                    <label v-if="modules.length > 0" class="form-label mb-1">{{ _('Filter by modules...')}}</label>
-                    <div v-if="modules.length > 0" class="mb-0">
-                        <div v-for="item in modules" class="badge me-1 p-1" :class="selectedModules.includes(item) ? 'bg-primary':'bg-light text-dark'" @click="toggleModule(item)">[[item]]</div>
+
+                <div class="log-controls-col">
+                  <div v-if="contentViewMode === 'parsed'">
+                    <label v-if="modules.length > 0" class="form-label">{{ _('Filter by modules...')}}</label>
+                    <div v-if="modules.length > 0" class="log-controls-badges">
+                      <div
+                        v-for="item in modules"
+                        class="badge p-1"
+                        :class="selectedModules.includes(item) ? 'bg-primary':'bg-light text-dark'"
+                        @click="toggleModule(item)"
+                      >
+                        [[item]]
+                      </div>
                     </div>
-                    <label class="form-label  mb-0">{{ _('Filter by level...')}}</label>
-                    <div>
-                        <div v-for="item in levels" class="badge me-1 p-1" :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'" @click="toggleLevel(item.value)">[[item.value]]</div>
+
+                    <label class="form-label mt-2">{{ _('Filter by level...')}}</label>
+                    <div class="log-controls-badges">
+                      <div
+                        v-for="item in levels"
+                        class="badge p-1"
+                        :class="selectedLevels.includes(item.value) ? 'bg-'+item.color:'bg-light text-dark'"
+                        @click="toggleLevel(item.value)"
+                      >
+                        [[item.value]]
+                      </div>
                     </div>
-                </div>
-                <div class="col-auto ms-auto align-self-end mb-1">
-                  <div style="min-width: 280px;">
-                    <label class="form-label mb-1">{{ _('Line mode')}}</label>
-                    <select v-model="lineWrapMode" class="form-select form-select-sm">
-                      <option value="wrap">{{ _('Word wrap') }}</option>
-                      <option value="truncate">{{ _('One line') }}</option>
-                    </select>
                   </div>
                 </div>
-            </div>
+              </div>
               <div v-for="(log, index) in selectedLogs" :key="index" class="rounded border shadow-sm p-2 mb-3 d-flex flex-column">
                 <div class="d-flex align-items-center mb-2">
                   <div class="d-flex align-items-center flex-grow-1">
@@ -199,7 +284,8 @@
                           class="text-muted ms-2"
                         >
                           [[ log.loadedLines ]] / [[ log.totalLines ]] {{ _('lines') }},
-                          [[ log.content.length ]] {{ _('entries') }}
+                          <span v-if="contentViewMode === 'parsed'">[[ log.content.length ]] {{ _('entries') }}</span>
+                          <span v-else>[[ log.content.length ]] {{ _('raw lines') }}</span>
                         </small>
                       </h5>
                     </div>
@@ -224,26 +310,29 @@
                   <div v-if="log.truncated" class="alert alert-warning py-1 px-2 mb-2">
                     {{ _('Only part of the log is loaded. Use download to get full file.') }}
                   </div>
-                  <div
-                    v-for="(line, lineIndex) in filteredAndSortedLogEntries(log)"
-                    :key="lineIndex"
-                    :class="['d-flex align-items-start border-bottom p-1 small log-line', { 'border-bottom-0': lineIndex === filteredAndSortedLogEntries(log).length - 1 }]"
-                  >
-                    <span class="d-flex align-items-center gap-1 me-2 small log-line-meta">
-                      <span class="text-body-secondary font-monospace">[[ line.time ]]</span>
-                      <span :class="'badge ms-1 me-1 bg-'+line.color">[[line.level]]</span>
-                      <span v-if="line.module" class="badge bg-primary">[[line.module]]</span>
-                    </span>
-                    <span :class="['log-line-message', lineWrapModeClass]">
-                      <span v-if="!line.isMultiline" :class="['font-monospace small text-break log-line-message', lineWrapModeClass]">[[ line.message ]]</span>
-                      <span v-else>
-                        <span v-if="!line.isExpanded" :class="['link-primary text-decoration-underline log-line-message', lineWrapModeClass]" style="cursor: pointer; display: block;" @click="toggleMultiline(line)">
-                          [[ line.message.split('\n')[0] ]]... ({{ _('click') }})
-                        </span>
-                        <pre v-else :class="['font-monospace small text-break mb-0 log-line-message', lineWrapModeClass]" style="cursor: pointer" @click="toggleMultiline(line)" title="{{ _('Click to collapse') }}">[[ line.message ]]</pre>
+                  <template v-if="contentViewMode === 'parsed'">
+                    <div
+                      v-for="(line, lineIndex) in filteredAndSortedLogEntries(log)"
+                      :key="'parsed-' + lineIndex"
+                      :class="['d-flex align-items-start border-bottom p-1 small log-line', { 'border-bottom-0': lineIndex === filteredAndSortedLogEntries(log).length - 1 }]"
+                    >
+                      <span class="d-flex align-items-center gap-1 me-2 small log-line-meta">
+                        <span class="text-body-secondary font-monospace">[[ line.time ]]</span>
+                        <span :class="'badge ms-1 me-1 bg-'+line.color">[[line.level]]</span>
+                        <span v-if="line.module" class="badge bg-primary">[[line.module]]</span>
                       </span>
-                    </span>
-                  </div>
+                      <span :class="['log-line-message', lineWrapModeClass]">
+                        <span v-if="!line.isMultiline" :class="['font-monospace small text-break log-line-message', lineWrapModeClass]">[[ line.message ]]</span>
+                        <span v-else>
+                          <span v-if="!line.isExpanded" :class="['link-primary text-decoration-underline log-line-message', lineWrapModeClass]" style="cursor: pointer; display: block;" @click="toggleMultiline(line)">[[ line.message.split('\n')[0].trim() ]]... ({{ _('click') }})</span>
+                          <pre v-else :class="['font-monospace small text-break mb-0 log-line-message', lineWrapModeClass]" style="cursor: pointer" @click="toggleMultiline(line)" title="{{ _('Click to collapse') }}">[[ line.message ]]</pre>
+                        </span>
+                      </span>
+                    </div>
+                  </template>
+                  <template v-else>
+                    <pre :class="['mb-0 p-1 small font-monospace raw-log-text', lineWrapModeClass]">[[ log.content ]]</pre>
+                  </template>
                 </div>
               </div>
             </div>
@@ -279,6 +368,7 @@
         selectedLogs: [], // Выбранные файлы
         searchQuery:'',
         sortOrder:'asc',
+        contentViewMode:'parsed',
         lineWrapMode:'wrap',
         isContentFullscreen:false,
         selectedLevels:[],
@@ -313,6 +403,9 @@
         if (localStorage.log_line_wrap_mode) {
           this.lineWrapMode = localStorage.log_line_wrap_mode;
         }
+        if (localStorage.log_content_view_mode) {
+          this.contentViewMode = localStorage.log_content_view_mode;
+        }
       },
       beforeDestroy() {
         window.removeEventListener('keydown', this.handleGlobalKeydown);
@@ -337,6 +430,17 @@
         },
         lineWrapMode(value) {
           localStorage.log_line_wrap_mode = value;
+        },
+        contentViewMode(value) {
+          localStorage.log_content_view_mode = value;
+          if (value === 'raw') {
+            this.selectedLevels = [];
+            this.selectedModules = [];
+            this.modules = [];
+          }
+          this.selectedLogs.forEach(log => {
+            this.applyViewModeToLog(log);
+          });
         },
       },
       computed: {
@@ -440,7 +544,16 @@
             if (existingIndex !== -1) {
                 this.selectedLogs.splice(existingIndex, 1); // Удалить файл из выбранных
             } else {
-                this.selectedLogs.push({ ...file, content: [], loading: false, collapse:false }); // Добавить файл
+                this.selectedLogs.push({
+                    ...file,
+                    content: [],
+                    loading: false,
+                    collapse:false,
+                    rawContent: null,
+                    rawText: '',
+                    parsedContent: null,
+                    parsedModules: [],
+                }); // Добавить файл
                 this.fetchLogFileContent(file.name);
             }
         },
@@ -448,7 +561,16 @@
             console.log("set",file)
             const existingIndex = this.selectedLogs.findIndex((log) => log.name === file.name);
             this.selectedLogs = []
-            this.selectedLogs.push({ ...file, content: [], loading: false, collapse:false }); // Добавить файл
+            this.selectedLogs.push({
+                ...file,
+                content: [],
+                loading: false,
+                collapse:false,
+                rawContent: null,
+                rawText: '',
+                parsedContent: null,
+                parsedModules: [],
+            }); // Добавить файл
             this.fetchLogFileContent(file.name);
         },
         toggleLevel(level){
@@ -471,9 +593,83 @@
         toggleMultiline(line) {
             line.isExpanded = !line.isExpanded;
         },
+        applyViewModeToLog(log) {
+            if (!log) {
+              return;
+            }
+            if (this.contentViewMode === 'raw') {
+              if (typeof log.rawText === 'string') {
+                log.content = log.rawText;
+              } else {
+                this.fetchLogFileContent(log.name);
+              }
+              return;
+            }
+            if (Array.isArray(log.parsedContent)) {
+              log.content = log.parsedContent;
+              this.modules = Array.isArray(log.parsedModules) ? log.parsedModules : [];
+              return;
+            }
+            if (Array.isArray(log.rawContent)) {
+              this.parseLogContentFromRaw(log);
+              return;
+            }
+            this.fetchLogFileContent(log.name);
+        },
+        parseLogContentFromRaw(log) {
+            const parsedModules = [];
+            const rawLines = Array.isArray(log.rawContent) ? log.rawContent : [];
+            const parsedLogs = [];
+            let currentLog = null;
+            const regex = /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)](?:\[([^\]]*)])*([^\n\r]*)/m;
+
+            rawLines.forEach((line) => {
+              const match = line.match(regex);
+              if (match) {
+                if (currentLog) {
+                    parsedLogs.push(currentLog);
+                }
+                const category = match ? match[2] : "UNKNOWN";
+                var color = 'primary'
+                if (category == 'DEBUG') color='secondary'
+                else if (category == 'INFO') color='success'
+                else if (category == 'WARNING') color='warning'
+                else if (category == 'ERROR') color='danger'
+                else if (category == 'CRITICAL') color='danger'
+                if (match[3]) {
+                  if (!parsedModules.includes(match[3]))
+                    parsedModules.push(match[3])
+                }
+                currentLog = {
+                    color: color,
+                    time: match[1],
+                    level: category,
+                    module: match[3],
+                    message: match[4].trim(),
+                    isMultiline: false,
+                    isExpanded: false,
+                }
+              } else {
+                if (currentLog && line !="") {
+                    currentLog.message += `\n${line}`;
+                    currentLog.isMultiline = true
+                }
+              }
+            });
+            if (currentLog) {
+                parsedLogs.push(currentLog);
+            }
+
+            log.parsedContent = parsedLogs;
+            log.parsedModules = parsedModules;
+            log.content = parsedLogs;
+            this.modules = parsedModules;
+            if (Array.isArray(this.selectedModules) && this.selectedModules.length > 0) {
+              this.selectedModules = this.selectedModules.filter((m) => parsedModules.includes(m));
+            }
+        },
         // Загрузка содержимого файла (частично, для больших логов)
         fetchLogFileContent(filename) {
-            var parsedModules = [];
             const log = this.selectedLogs.find((log) => log.name === filename);
             if (log) {
                     log.loading = true
@@ -492,63 +688,19 @@
                 if (loadedLines > 0 && content[loadedLines - 1] === '') {
                     loadedLines -= 1
                 }
-                // Парсим логи с учетом многострочности
-                const parsedLogs = [];
-                let currentLog = null;
-
-                const regex = /^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\[(INFO|ERROR|DEBUG|WARNING|CRITICAL)](?:\[([^\]]*)])*([^\n\r]*)/m;
-
-                content.forEach((line) => {
-                  const match = line.match(regex);
-                  if (match) {
-                    if (currentLog) {
-                        parsedLogs.push(currentLog);
-                    }
-                    const category = match ? match[2] : "UNKNOWN";
-                    var color = 'primary'
-                    if (category == 'DEBUG') color='secondary'
-                    else if (category == 'INFO') color='success'
-                    else if (category == 'WARNING') color='warning'
-                    else if (category == 'ERROR') color='danger'
-                    else if (category == 'CRITICAL') color='danger'
-                    if (match[3]) {
-                      if (!parsedModules.includes(match[3]))
-                        parsedModules.push(match[3])
-                    }
-                    currentLog = {
-                        color: color,
-                        time: match[1],
-                        level: category,
-                        module: match[3],
-                        message: match[4].trim(),
-                        isMultiline: false,
-                        isExpanded: false,
-                    }
-                  } else {
-                    // Если это продолжение текущего лога, добавляем строку
-                    if (currentLog && line !="") {
-                        currentLog.message += `\n${line}`;
-                        currentLog.isMultiline = true
-                    }
-                  }
-                });
-
-                if (currentLog) {
-                    parsedLogs.push(currentLog);
-                }
-                this.modules = parsedModules;
-                // Если выбранные модули отсутствуют в новом файле — сбрасываем их из фильтра
-                if (Array.isArray(this.selectedModules) && this.selectedModules.length > 0) {
-                  this.selectedModules = this.selectedModules.filter((m) => parsedModules.includes(m));
-                }
+                const rawLines = content.filter((line, index) => !(index === content.length - 1 && line === ''));
 
                 if (log) {
-                    log.content = parsedLogs;
+                    log.rawText = rawContent;
+                    log.rawContent = rawLines;
+                    log.parsedContent = null;
+                    log.parsedModules = [];
                     // сервер сообщает, была ли отдана только часть файла
                     log.truncated = !!response.data.truncated;
                     log.loadedLines = loadedLines;
                     log.totalLines = response.data.total_lines || loadedLines;
-                    log.loading = false
+                    this.applyViewModeToLog(log);
+                    log.loading = false;
                 }
             });
         },
@@ -580,8 +732,9 @@
         // Фильтрация и сортировка записей логов
         filteredAndSortedLogEntries(log) {
           return log.content
+            .filter((line) => line && typeof line === 'object')
             .filter((line) =>
-              line.message.toLowerCase().includes(this.searchQuery.toLowerCase()) &&
+              String(line.message || '').toLowerCase().includes(this.searchQuery.toLowerCase()) &&
               (this.selectedLevels.length === 0 || this.selectedLevels.includes(line.level))
             )
             .filter((line) =>
